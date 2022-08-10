@@ -1,3 +1,4 @@
+use indoc::printdoc;
 use std::{
     mem::size_of,
     ptr::null,
@@ -49,25 +50,41 @@ fn main() {
 }
 
 fn run() -> Result<u32> {
+    // Solve problem of being attached to a new console when running as administrator.
     unsafe { FreeConsole() }.ok()?;
     unsafe { AttachConsole(ATTACH_PARENT_PROCESS) }.ok()?;
-    let args = unsafe { GetCommandLineW() }.as_ptr();
-    let args = unsafe { slice(args, wcslen(PCWSTR(args)) + 1) };
-    const TAB: u16 = '\t' as u16;
-    const SPACE: u16 = ' ' as u16;
-    const QUOTE: u16 = '"' as u16;
 
+    let args = unsafe { GetCommandLineW() }.as_ptr();
+    let args = unsafe { slice(args, wcslen(PCWSTR(args)) + 1) }; // Include the null character.
+
+    // The index of the first space.
     let space = match args[0] {
+        // When starting with a double quote, the first space is after the second double quote.
         QUOTE => 1 + args[1..].iter().position(|&c| c == QUOTE).unwrap() + 1,
         _ => args.iter().position(|&c| c == SPACE || c == TAB).unwrap(),
     };
 
-    let mut command = args[space
+    // The index of the first character of the command.
+    let command = space
         + args[space..]
             .iter()
             .position(|&c| c != SPACE && c != TAB)
-            .unwrap()..]
-        .to_owned();
+            .unwrap();
+
+    // If there are no parameters, display information and usage.
+    if args[command] == NULL {
+        printdoc!(
+            "
+            {NAME} {VERSION}
+            {DESCRIPTION}.
+            Usage: {NAME} [command]
+            "
+        );
+
+        return Result::Ok(0);
+    }
+
+    let mut command = args[command..].to_owned();
 
     let info = STARTUPINFOW {
         cb: size_of::<STARTUPINFOW>() as u32,
@@ -99,6 +116,14 @@ fn run() -> Result<u32> {
     unsafe { GetExitCodeProcess(target.hProcess, &mut code) }.ok()?;
     Result::Ok(code)
 }
+
+const NAME: &str = env!("CARGO_PKG_NAME");
+const VERSION: &str = env!("CARGO_PKG_VERSION");
+const DESCRIPTION: &str = env!("CARGO_PKG_DESCRIPTION");
+const NULL: u16 = b'\0' as u16;
+const TAB: u16 = b'\t' as u16;
+const SPACE: u16 = b' ' as u16;
+const QUOTE: u16 = b'"' as u16;
 
 struct Defer<T, F: FnOnce() -> T> {
     f: Option<F>,
