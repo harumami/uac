@@ -1,7 +1,13 @@
 [package]
 name = "uac"
 version = "0.0.0"
+authors = ["Nabla"]
 edition = "2021"
+description = "A command to run a program as administrator in Windows"
+readme = "README.md"
+repository = "https://gitlab.com/anynabla/uac"
+license = "MIT"
+license-file = "LICENSE.txt"
 
 [dependencies.windows]
 version = "0.39.0"
