@@ -6,4 +6,5 @@ A command to run a program as administrator in Windows.
 
 | Syntax | Description |
 | - | - |
+| `uac` | Display information and usage |
 | `uac [command]` | Run the command as administrator |
