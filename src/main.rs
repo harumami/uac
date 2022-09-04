@@ -1,10 +1,10 @@
 use defer::defer;
-use indoc::printdoc;
 use std::{
     mem::size_of,
     ptr::null,
     slice::from_raw_parts as slice,
 };
+use text::text;
 use windows::{
     core::{
         wcslen,
@@ -51,9 +51,6 @@ fn main() {
 }
 
 fn run() -> Result<u32> {
-    const NAME: &str = env!("CARGO_PKG_NAME");
-    const VERSION: &str = env!("CARGO_PKG_VERSION");
-    const DESCRIPTION: &str = env!("CARGO_PKG_DESCRIPTION");
     const NULL: u16 = b'\0' as u16;
     const TAB: u16 = b'\t' as u16;
     const SPACE: u16 = b' ' as u16;
@@ -63,37 +60,36 @@ fn run() -> Result<u32> {
     unsafe { FreeConsole() }.ok()?;
     unsafe { AttachConsole(ATTACH_PARENT_PROCESS) }.ok()?;
 
-    let args = unsafe { GetCommandLineW() }.as_ptr();
-    let args = unsafe { slice(args, wcslen(PCWSTR(args)) + 1) }; // Include the null character.
+    let command_line = unsafe { GetCommandLineW() }.as_ptr();
+    let command_line = unsafe { slice(command_line, wcslen(PCWSTR(command_line)) + 1) }; // Include the null character.
 
-    // The index of the first space.
-    let space = match args[0] {
-        // When starting with a double quote, the first space is after the second double quote.
-        QUOTE => 1 + args[1..].iter().position(|&c| c == QUOTE).unwrap() + 1,
-        _ => args.iter().position(|&c| c == SPACE || c == TAB).unwrap(),
-    };
-
-    // The index of the first character of the command.
-    let command = space
-        + args[space..]
+    let args = &command_line[match command_line[0] {
+        QUOTE => 1 + command_line[1..].iter().position(|&c| c == QUOTE).unwrap() + 1,
+        _ => command_line
             .iter()
-            .position(|&c| c != SPACE && c != TAB)
-            .unwrap();
+            .position(|&c| c == SPACE || c == TAB || c == NULL)
+            .unwrap(),
+    }..];
+
+    let command = &args[args.iter().position(|&c| c != SPACE && c != TAB).unwrap()..];
 
     // If there are no parameters, display information and usage.
-    if args[command] == NULL {
-        printdoc!(
-            "
-            {NAME} {VERSION}
-            {DESCRIPTION}.
-            Usage: {NAME} [command]
-            "
+    if command[0] == NULL {
+        println!(
+            text!(
+                "{0} {1}"
+                "{2}."
+                "Usage: {0} [command]"
+            ),
+            env!("CARGO_PKG_NAME"),
+            env!("CARGO_PKG_VERSION"),
+            env!("CARGO_PKG_DESCRIPTION"),
         );
 
         return Result::Ok(0);
     }
 
-    let mut command = args[command..].to_owned();
+    let mut command = command.to_vec();
 
     let info = STARTUPINFOW {
         cb: size_of::<STARTUPINFOW>() as u32,
