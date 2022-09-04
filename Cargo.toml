@@ -1,6 +1,6 @@
 [package]
 name = "uac"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Nabla"]
 edition = "2021"
 description = "A command to run a program as administrator in Windows"
