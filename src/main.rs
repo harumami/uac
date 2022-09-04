@@ -1,3 +1,4 @@
+use defer::defer;
 use indoc::printdoc;
 use std::{
     mem::size_of,
@@ -50,6 +51,14 @@ fn main() {
 }
 
 fn run() -> Result<u32> {
+    const NAME: &str = env!("CARGO_PKG_NAME");
+    const VERSION: &str = env!("CARGO_PKG_VERSION");
+    const DESCRIPTION: &str = env!("CARGO_PKG_DESCRIPTION");
+    const NULL: u16 = b'\0' as u16;
+    const TAB: u16 = b'\t' as u16;
+    const SPACE: u16 = b' ' as u16;
+    const QUOTE: u16 = b'"' as u16;
+
     // Solve problem of being attached to a new console when running as administrator.
     unsafe { FreeConsole() }.ok()?;
     unsafe { AttachConsole(ATTACH_PARENT_PROCESS) }.ok()?;
@@ -109,34 +118,13 @@ fn run() -> Result<u32> {
     }
     .ok()?;
 
-    let _defer = defer(|| unsafe { CloseHandle(target.hProcess) });
+    defer! {
+        unsafe { CloseHandle(target.hProcess) };
+    }
+
     unsafe { CloseHandle(target.hThread) };
     WIN32_ERROR(unsafe { WaitForSingleObject(target.hProcess, INFINITE) }).ok()?;
     let mut code = 0;
     unsafe { GetExitCodeProcess(target.hProcess, &mut code) }.ok()?;
     Result::Ok(code)
-}
-
-const NAME: &str = env!("CARGO_PKG_NAME");
-const VERSION: &str = env!("CARGO_PKG_VERSION");
-const DESCRIPTION: &str = env!("CARGO_PKG_DESCRIPTION");
-const NULL: u16 = b'\0' as u16;
-const TAB: u16 = b'\t' as u16;
-const SPACE: u16 = b' ' as u16;
-const QUOTE: u16 = b'"' as u16;
-
-struct Defer<T, F: FnOnce() -> T> {
-    f: Option<F>,
-}
-
-impl<T, F: FnOnce() -> T> Drop for Defer<T, F> {
-    fn drop(&mut self) {
-        if let Option::Some(f) = self.f.take() {
-            f();
-        }
-    }
-}
-
-fn defer<T, F: FnOnce() -> T>(f: F) -> Defer<T, F> {
-    Defer { f: Option::Some(f) }
 }
